@@ -18,7 +18,7 @@ export default async function ProfilePage() {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("services, tone, target_client, plan, cancel_at")
+    .select("full_name, services, tone, target_client, plan, cancel_at")
     .eq("user_id", user.id)
     .maybeSingle();
   if (profileError) {
@@ -26,6 +26,7 @@ export default async function ProfilePage() {
   }
 
   const initialData: Profile = {
+    full_name: profile?.full_name ?? "",
     services: profile?.services ?? "",
     tone: isTone(profile?.tone) ? profile.tone : "Professional",
     target_client: profile?.target_client ?? "",

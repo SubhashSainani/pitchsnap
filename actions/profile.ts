@@ -14,6 +14,9 @@ export async function saveProfile(
     if (!data.services.trim()) {
       return { success: false, error: "Services description is required." };
     }
+    if (data.full_name.trim().length > 100) {
+      return { success: false, error: "Name must be 100 characters or fewer." };
+    }
     if (!VALID_TONES.includes(data.tone)) {
       return { success: false, error: "Invalid tone selected." };
     }
@@ -29,6 +32,7 @@ export async function saveProfile(
     const { error } = await supabase.from("profiles").upsert(
       {
         user_id: user.id,
+        full_name: data.full_name.trim(),
         services: data.services.trim(),
         tone: data.tone,
         target_client: data.target_client.trim(),

@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import type { Profile } from "@/types";
 
 const DEMO_PROFILE: Profile = {
+  full_name: "",
   services: "providing professional services tailored to your business",
   tone: "Professional",
   target_client: "",

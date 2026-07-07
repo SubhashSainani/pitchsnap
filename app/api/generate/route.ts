@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
   const { data: profileRow, error: profileError } = await supabase
     .from("profiles")
-    .select("services, tone, target_client, pitches_this_month, plan")
+    .select("full_name, services, tone, target_client, pitches_this_month, plan")
     .eq("user_id", user.id)
     .maybeSingle();
   if (profileError) {
@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
   }
 
   const profile: Profile = {
+    full_name: profileRow?.full_name ?? "",
     services: profileRow?.services ?? "",
     tone: isTone(profileRow?.tone) ? profileRow.tone : "Professional",
     target_client: profileRow?.target_client ?? "",

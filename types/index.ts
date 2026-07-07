@@ -1,6 +1,7 @@
 export type Tone = "Professional" | "Friendly" | "Direct";
 
 export type Profile = {
+  full_name: string;
   services: string;
   tone: Tone;
   target_client: string;

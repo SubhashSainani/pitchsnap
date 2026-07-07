@@ -19,6 +19,7 @@ type Props = {
 };
 
 export function ProfileForm({ initialData }: Props) {
+  const [fullName, setFullName] = useState(initialData.full_name);
   const [services, setServices] = useState(initialData.services);
   const [tone, setTone] = useState<Tone>(initialData.tone);
   const [targetClient, setTargetClient] = useState(initialData.target_client);
@@ -37,6 +38,7 @@ export function ProfileForm({ initialData }: Props) {
     setSaved(false);
 
     const result = await saveProfile({
+      full_name: fullName,
       services,
       tone,
       target_client: targetClient,
@@ -76,6 +78,20 @@ export function ProfileForm({ initialData }: Props) {
         initial={reducedMotion ? "show" : "hidden"}
         animate="show"
       >
+        <motion.div variants={staggerItem}>
+          <label className="text-sm font-medium text-text-secondary mb-1 block">
+            Your name
+          </label>
+          <input
+            type="text"
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            placeholder="e.g. Alex Johnson"
+            maxLength={100}
+            className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent w-full"
+          />
+        </motion.div>
+
         <motion.div variants={staggerItem}>
           <label className="text-sm font-medium text-text-secondary mb-1 block">
             Services Offered

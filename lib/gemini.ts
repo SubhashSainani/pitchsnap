@@ -10,6 +10,7 @@ function buildPrompt(
   domain: string,
 ): string {
   const signOff = profile.tone === "Friendly" ? "Cheers," : "Best,";
+  const fullName = profile.full_name.trim();
 
   return `You are writing a cold outreach email on behalf of a freelancer/indie hacker.
 
@@ -59,7 +60,7 @@ Hi [Name or Company team],
 
 [CTA paragraph]
 
-${signOff}
+${signOff}${fullName ? `\n${fullName}` : ""}
 
 RULES:
 - The SUBJECT_LINES: and EMAIL: section markers must appear exactly as shown.
@@ -68,7 +69,8 @@ RULES:
 - The email body (hook + value + CTA, not counting greeting and sign-off) must be under 100 words total.
 - Never use placeholder brackets like [Name], [Company], [Your Name], or any bracketed placeholder anywhere — every value must be real and concrete, pulled from the content above or the domain fallback.
 - The email must be fully ready to send as written.
-- Return plain text only — no markdown, no asterisks, no bullet points.`;
+- Return plain text only — no markdown, no asterisks, no bullet points.
+- Reproduce the sign-off exactly as shown in the OUTPUT FORMAT above — do not add or remove any lines.`;
 }
 
 export function parsePitchResponse(raw: string): {

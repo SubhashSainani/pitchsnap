@@ -25,13 +25,14 @@ export default async function GeneratePage({ searchParams }: Props) {
   const { data: profileRow } = await supabase
     .from("profiles")
     .select(
-      "services, tone, target_client, plan, pitches_this_month, stripe_customer_id, stripe_subscription_id, subscription_status, cancel_at"
+      "full_name, services, tone, target_client, plan, pitches_this_month, stripe_customer_id, stripe_subscription_id, subscription_status, cancel_at"
     )
     .eq("user_id", user.id)
     .maybeSingle();
 
   const profile: Profile | null = profileRow
     ? {
+        full_name: profileRow.full_name ?? "",
         services: profileRow.services,
         tone: isTone(profileRow.tone) ? profileRow.tone : "Professional",
         target_client: profileRow.target_client,
