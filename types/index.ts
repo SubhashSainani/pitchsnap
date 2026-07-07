@@ -19,3 +19,20 @@ export type Pitch = {
   email_content: string;
   created_at: string;
 };
+
+export type Plan = "free" | "standard" | "pro";
+
+export type UsageInfo = {
+  plan: Plan;
+  pitches_this_month: number;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  subscription_status: string | null;
+  cancel_at: string | null;
+};
+
+const PLANS: readonly string[] = ["free", "standard", "pro"];
+
+export function isPlan(value: unknown): value is Plan {
+  return typeof value === "string" && PLANS.includes(value);
+}

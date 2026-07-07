@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('deps:', list\\(d.get\\('dependencies',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(npx next *)",
+      "Bash(git -C /Users/subhash/Desktop/pitchsnap show HEAD:components/profile/ProfileForm.tsx)",
+      "Bash(git -C /Users/subhash/Desktop/pitchsnap show HEAD:components/pitch/PitchForm.tsx)"
     ]
   }
 }

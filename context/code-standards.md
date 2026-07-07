@@ -92,6 +92,7 @@ export function ComponentName({ userId }: Props) {
 - **Exception:** Next.js App Router special files (`page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx`) must use default exports — this is a framework requirement, not a deviation
 - Props type defined directly above the component
 - No inline styles — all styling via Tailwind using tokens from ui-tokens.md
+- **Exception:** `style={{ width: ... }}` is permitted specifically for continuously-variable runtime percentages (e.g. a progress bar fill driven by a numeric value) — Tailwind has no mechanism for arbitrary runtime percentages via className. First use: the usage-quota progress bar in `components/pitch/PitchForm.tsx`. Same justification pattern as `ui-rules.md`'s `position: fixed` exception for modals — a narrow, documented exception, not a precedent for inline styles generally.
 
 ---
 
@@ -222,6 +223,8 @@ Approved packages for PitchSnap:
 - `tailwindcss` — styling
 - shadcn/ui components — UI primitives (first use: Dialog, Feature 10 — pulls in `@base-ui/react` as the underlying headless primitive, plus `clsx` + `tailwind-merge` via `lib/utils.ts`'s `cn()`, and `tw-animate-css` for open/close transitions; `shadcn` itself is a devDependency, codegen only, never imported at runtime)
 - `cheerio` — HTML parsing for website fetcher (server only)
+- `stripe` — Stripe SDK for Checkout, webhooks, and Customer Portal (server only, never imported in a Client Component — `lib/stripe.ts` is the only place it's instantiated)
+- `framer-motion` — animation library, Client Components only
 
 Do not install anything else without updating this list.
 
@@ -234,5 +237,6 @@ Do not install anything else without updating this list.
 | `NEXT_PUBLIC_SUPABASE_URL`      | lib/supabase-client.ts     |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | lib/supabase-client.ts     |
 | `GEMINI_API_KEY`                | lib/gemini.ts              |
+| `SUPABASE_SERVICE_ROLE_KEY`     | lib/supabase-admin.ts      |
 
-`NEXT_PUBLIC_` = safe for browser. Never add `NEXT_PUBLIC_` to `GEMINI_API_KEY`.
+`NEXT_PUBLIC_` = safe for browser. Never add `NEXT_PUBLIC_` to `GEMINI_API_KEY` or `SUPABASE_SERVICE_ROLE_KEY` — the service role key bypasses RLS entirely and must never reach the browser.

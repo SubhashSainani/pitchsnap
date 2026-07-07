@@ -1,62 +1,89 @@
-# Memory — Session 8: Homepage Redesign
+# Memory — Session 23: Prospect Name Extraction, Subject Lines, Tone Badge
 
-Last updated: 2026-06-30
+Last updated: 2026-07-07
 
 ## What was built
 
-- **Homepage redesign — `app/page.tsx` complete rebuild.** The previous 2-section placeholder (hero + 3 step cards) was replaced with a full 5-section landing page:
-  - **Hero**: two-column grid (left: eyebrow badge + H1 gradient + subtext + pill CTAs + social proof; right: static browser window mock), 4-layer background depth treatment (gradient wash + 3 orbs + bottom fade)
-  - **Stats Bar**: 4-stat `gap-px bg-border` divider grid with `-mt-6` overlap on hero
-  - **How It Works**: semantic `<ol>` grid of 3 `<li>` step cards, ArrowRight connectors between cards, icon chips, uppercase step labels
-  - **CTA Section**: marketing card with `rounded-3xl`, two glow orbs inside, gradient H2, pill CTAs
-  - **Footer**: brand block + 4-column link grid (Product/Company/Resources/Legal) + bottom bar
+Three features on the Generate page, all sharing a single Gemini prompt change as foundation.
 
-- **`context/ui-registry.md`** — updated Hero Section and Step Card entries (both significantly changed), plus 6 new entries: Stats Bar, CTA Section, Browser Window Mock, Footer, Pill Button, Eyebrow Badge.
+### Feature 1 — Prospect Name Extraction (`lib/gemini.ts`)
+`buildPrompt` updated with explicit STEP 1/2 instructions: scan for founder/CEO/co-founder/director/named contact, use first name if found ("Hi [First name],"), fall back to company name ("Hi [Company name] team,"), derive company name from domain if not in content. The OUTPUT FORMAT now uses structured SUBJECT_LINES:/EMAIL: section markers.
+
+### Feature 2 — Subject Line Generator
+**`lib/gemini.ts`:** `buildPrompt` now instructs Gemini to return 3 subject line options (curiosity-based, direct/benefit-based, personal) in the format:
+```
+SUBJECT_LINES:
+1. ...
+2. ...
+3. ...
+EMAIL:
+[email body]
+```
+New exported function `parsePitchResponse(raw: string)` parses this format into `{ subjectLines: string[], emailContent: string }`. Defensive: regex uses `\n+EMAIL:\n` (not `\nEMAIL:\n`) to handle blank lines Gemini may emit. Falls back: if markers missing, `emailContent = raw.trim()`, `subjectLines = []`. Never throws.
+
+**`app/api/generate/route.ts`:** After stream completes, calls `parsePitchResponse(fullText)` → saves only `emailContent` to pitches table (not the raw structured text). Insert failure is now **non-fatal**: logs the error but continues (user retains their generated email + subject lines; pitch simply won't appear in history). After DB work: enqueues `__METADATA__${JSON.stringify({ subjectLines })}` as the last stream chunk, then `controller.close()`.
+
+**`app/api/demo-generate/route.ts`:** Fixed regression — now calls `parsePitchResponse(raw).emailContent` before returning JSON. (The shared `buildPrompt` now returns structured text; the demo route never needed subject lines but would have returned the raw markers as email_content without this fix.)
+
+**`components/pitch/PitchForm.tsx`:** 
+- Added `subjectLines` state (cleared at start of each `generate()`)
+- Per-chunk: checks for `__METADATA__` → parses subjectLines, strips trailer from fullText via `continue`
+- Post-loop split-chunk recovery: after while loop, checks `fullText` for `__STREAM_ERROR__` and `__METADATA__` (handles the case where sentinels were split across reads by proxies/edge runtimes; the `catch{}` in the per-chunk handler can silently miss them)
+- Post-loop final parse: `fullText.match(/EMAIL:\n([\s\S]*)/)` → extracts clean email body for display
+- Passes `subjectLines` and `tone={profile?.tone ?? "Professional"}` to `PitchOutput`
+
+**`components/pitch/PitchOutput.tsx`:**
+- New props: `subjectLines?: string[]` (default `[]`), `tone?: string` (default `"Professional"`)
+- Subject lines section renders between header divider and email body when `subjectLines.length > 0`
+- Each subject line row: `key={line}` (not index), copy button shows `Check` (14px, `text-success-foreground`) for 1.5s via `copiedIndexTimer` ref
+- `copiedIndex` reset via `useEffect` watching `subjectLines` (prevents stale check after regeneration)
+- Tone badge in header: `bg-surface-secondary text-text-muted text-xs rounded-full px-2.5 py-1`, shows `"{tone} · {wordCount} words"`, only when `hasPitch`
+
+### Feature 3 — Tone Preview Badge
+Described above under PitchOutput changes.
 
 ## Decisions made
 
-- **Tailwind built-in colors as design spec exceptions:** `via-purple-500`, `to-violet-400`, `bg-rose-400`, `bg-emerald-400`, `bg-amber-400`, `fill-amber-400 text-amber-400`, `bg-red-400` — all called out explicitly in the design brief. Not hex values, not violating the rule. Used only for decorative elements (gradient stops, avatar dots, traffic-light dots, stars). App interior must never use these; they're homepage-only spec exceptions.
-
-- **`Link as LinkIcon` alias:** lucide-react's `Link` icon conflicts with Next.js's `Link` component at the import level. Always alias: `import { Link as LinkIcon } from "lucide-react"` on any page that also imports `Link from "next/link"`.
-
-- **Three-tier border radius system established:**
-  - `rounded-xl` — app interior cards (Auth Card, Pitch Form, Profile Form, dialog)
-  - `rounded-2xl` — marketing feature cards (Step Cards, Stats Bar container, browser window mock, hero card elements)
-  - `rounded-3xl` — marketing CTA card only (the one hero surface per page)
-  Never use `rounded-3xl` inside the authenticated app.
-
-- **Pill Button pattern is marketing-only:** `rounded-full h-12 text-base font-medium px-7` — used exclusively on marketing/homepage CTAs. Interior app uses `rounded-lg px-4 py-2 text-sm`. These two patterns must never appear in the same view.
-
-- **Connector arrows between grid items:** Can't be `<div>` children of `<ol>` (invalid HTML). Solution: wrap `<ol>` in a `relative div`, place connector `aria-hidden` divs as siblings to `<ol>` inside the wrapper. Positioned `absolute` at `left-1/3` / `left-2/3` with `-translate-x-1/2 top-1/2 -translate-y-1/2`.
-
-- **Step Cards upgraded:** `rounded-xl p-6 shadow-sm hover:shadow-md hover:border-border-strong` → `rounded-2xl p-8 no-default-shadow hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(91,78,232,0.1)]`. The hover-translate pattern is homepage-only; interior app cards use shadow/border-color lift only.
-
-- **`gap-px bg-border` divider trick:** Stats Bar uses a grid container with `bg-border` and `gap-px`, cells with `bg-surface`, so the border color shows through 1px gaps creating clean internal dividers. Requires `rounded-2xl overflow-hidden` on the container to clip correctly.
-
-- **Browser window is always static HTML:** The right-column browser mock is zero JS, zero event handlers, zero state — `div` elements styled to look interactive, never `button`. Never add JS to what is a visual illustration.
+- **`parsePitchResponse` stays in `lib/gemini.ts`** (server-side only). The client does its own inline `EMAIL:\n` regex after the stream ends — this duplication is intentional since `lib/gemini.ts` imports `@google/generative-ai` and cannot be bundled on the client.
+- **Insert failure is non-fatal** — previously `if (insertError) throw insertError` sent `__STREAM_ERROR__` to the client, making the generated email disappear even though it was fully visible. Now logs and continues. Usage is only incremented if the insert succeeded.
+- **Subject lines are ephemeral** — never saved to the `pitches` table, never shown in History, not added to the `Pitch` type.
+- **`\n+EMAIL:\n` in parsePitchResponse** — `+` instead of literal single newline makes the parser robust to LLMs adding trailing blank lines after numbered lists (common behavior).
+- **Demo route always parses** — demo route calls `generatePitch` (non-streaming, same `buildPrompt`), now wraps with `parsePitchResponse(...).emailContent` to strip the SUBJECT_LINES block before returning. Demo UI is unchanged.
 
 ## Problems solved
 
-- `Link` icon from lucide-react collides with `Link` from next/link when imported in the same file — fixed with `Link as LinkIcon` alias. Found during /review after initial implementation.
-
-- `opacity-15` works in this project's Tailwind v4 setup (confirmed from prior session — used in hero orbs). Not an issue.
-
-- `.next/` generated files produce duplicate-identifier TypeScript errors — these are pre-existing Next.js build artifacts, not source code errors. `npx tsc --noEmit 2>&1 | grep -v "^.next/"` confirms zero source errors.
+- Demo route regression: `buildPrompt` change broke the demo route (returned SUBJECT_LINES: markers as email_content). Fixed by importing and calling `parsePitchResponse` in the demo route.
+- Split-chunk sentinel risk: per-chunk sentinel detection can miss if proxies re-chunk. Fixed by post-loop checks on the full assembled `fullText`.
+- `text-green-500` token violation: replaced with `text-success-foreground` per ui-tokens.md invariant.
+- Stale copiedIndex after regeneration: `key={i}` → `key={line}` + `useEffect` reset.
 
 ## Current state
 
-- `app/page.tsx` fully redesigned, `tsc --noEmit` clean, implementation matches spec exactly.
-- `context/ui-registry.md` updated with 2 updated entries and 6 new entries (12 → 18 entries total in registry).
-- `context/progress-tracker.md` updated: Session 8 / homepage redesign marked complete, Phase 6 Feature 15 is next.
-- Phase 5 and the homepage redesign are now complete. Phase 6 (Production) is the final phase.
+- TypeScript clean (no source-file errors).
+- All three features implemented and reviewed.
+- Demo route unbroken (explicitly fixed this session).
+- Subject lines: ephemeral, not persisted, not in Pitch type.
+- Manual browser verification still needed (cannot be done headlessly):
+  - Generate a pitch for https://linear.app — check greeting uses a real name or "Linear team"
+  - Three subject lines appear above email with per-line copy buttons (green check on copy)
+  - Tone badge shows in header: e.g. "Friendly · 67 words"
+  - /history: saved pitch contains only email body, no subject lines, no markers
+  - Regenerate: subject lines update, tone badge word count updates
+  - Demo page: no SUBJECT_LINES markers in output
 
 ## Next session starts with
 
-Phase 6, Feature 15 — **Environment variable audit** (`context/build-plan.md`). Run `/architect` first per the established workflow.
+Phase 6, Feature 16: **RLS policies audit** — check that Supabase row-level security is correctly configured on `profiles`, `pitches`, and `demo_usage` tables before the Vercel deploy.
+
+Secondary backlog (lower priority):
+- BrowserDemo animation visual check (carried from Session 9)
+- Hero "See how it works" button still unwired
+- `TONES`/`VALID_TONES` triplication across the codebase
+- SSRF `dns.lookup` check not tested against Vercel production runtime
+- Duplicate-subscription prevention fix not yet manually re-tested
+- Generate page heading deviation from interior-page pattern (Session 11, still unresolved)
 
 ## Open questions
 
-- Whether to `git init` this project — still undecided, carried over from all prior sessions.
-- `TONES`/`VALID_TONES` still duplicated in three places (`actions/profile.ts`, `components/profile/ProfileForm.tsx`, `app/api/generate/route.ts`) — not worth centralizing until a fourth use case appears.
-- The SSRF fix's `dns.lookup` check hasn't been tested against the Vercel production runtime — carry forward to Feature 17 (Deploy).
-- Any future `shadcn add` for a new primitive needs the same token-rewrite treatment `dialog.tsx` got — nothing automatic enforces this, documented in `ui-registry.md`'s Dialog entry and `code-standards.md`.
+- Whether the developer has manually verified the dark theme across all pages (Sessions 16–20 verification was always handed off, never confirmed back).
+- Pricing page Pro card: "$25/month" vs Replit mockup's "$29/month" — no change made, confirm with developer.

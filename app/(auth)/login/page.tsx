@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { LoginCard } from "@/components/auth/LoginCard";
+import { LoginOrbs } from "@/components/auth/LoginOrbs";
 import { createClient } from "@/lib/supabase-server";
+
+export const metadata: Metadata = {
+  title: "Sign in — PitchSnap",
+};
 
 type Props = {
   searchParams: Promise<{ error?: string }>;
@@ -17,21 +23,10 @@ export default async function LoginPage({ searchParams }: Props) {
   const { error } = await searchParams;
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-background px-6">
-      <div className="bg-surface border border-border rounded-xl shadow-sm p-6 w-full max-w-sm text-center">
-        <h1 className="text-2xl font-bold text-text-primary mb-2">
-          PitchSnap
-        </h1>
-        <p className="text-sm text-text-secondary mb-6">
-          Sign in to start generating personalized cold emails.
-        </p>
-        {error && (
-          <p className="bg-error-light text-error-foreground text-sm rounded-lg px-3 py-2 mb-4">
-            Something went wrong signing you in. Please try again.
-          </p>
-        )}
-        <GoogleSignInButton />
-      </div>
+    <main className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden bg-background">
+      {/* Login page background orbs — permitted exception per ui-rules.md, page background depth only */}
+      <LoginOrbs />
+      <LoginCard error={error} />
     </main>
   );
 }

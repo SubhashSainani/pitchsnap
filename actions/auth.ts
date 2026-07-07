@@ -13,5 +13,5 @@ export async function signOut(): Promise<void> {
     console.error("[actions/auth]", error);
     redirect("/generate?error=signout_failed");
   }
-  redirect("/login");
+  redirect("/");
 }

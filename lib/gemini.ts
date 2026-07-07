@@ -9,6 +9,8 @@ function buildPrompt(
   profile: Profile,
   domain: string,
 ): string {
+  const signOff = profile.tone === "Friendly" ? "Cheers," : "Best,";
+
   return `You are writing a cold outreach email on behalf of a freelancer/indie hacker.
 
 THE SENDER (who this email is from):
@@ -22,23 +24,71 @@ Website content extracted from their site:
 ${websiteContent}
 """
 
+STEP 1 — Identify the company name:
 The prospect's company name may or may not be explicitly stated in the content above.
 If you can confidently identify the real company name from the content, use it.
-If you cannot, use this exact domain name instead: "${domain}".
+If you cannot, derive it from this domain: "${domain}" (e.g. linear.app → Linear).
 
-Write a complete, ready-to-send cold email in a ${profile.tone.toLowerCase()} tone, structured as exactly three sentences plus a sign-off — nothing more:
-1. One sentence making a specific, real observation about the prospect's business, drawn directly from the content above.
-2. One sentence connecting that specific observation to how the sender's services could help. Do not spend more than this one sentence on the sender's own background — no multi-sentence paragraphs introducing or describing the sender.
-3. One sentence that is a clear call to action.
-Then a short sign-off line (no name needed, the sender will sign it themselves).
+STEP 2 — Identify a named contact:
+Scan the website content for any person's name associated with the company — founder, CEO, co-founder, director, or any named contact. If a name is found, use only their first name in the greeting: "Hi [First name],". If no name is found, use the company name: "Hi [Company name] team,".
 
-HARD LIMIT: the entire email, including the sign-off, must be no more than 80 words. Count the words before finalizing your answer and cut anything over the limit — trim the sentences, do not add a fourth one.
+STEP 3 — Write 3 subject line options:
+Each subject line must be under 50 characters. Write three with different angles:
+- One curiosity-based (makes the reader want to know more)
+- One direct/benefit-based (states a clear outcome)
+- One personal (references something specific about their business)
+All three must match the sender's tone and reference something real from the website content.
 
-Other rules:
-- No subject line, no markdown formatting — plain email body only.
-- Exactly three body sentences as structured above. Do not add extra sentences or extra paragraphs.
+STEP 4 — Write the email body following this structure:
+- Hook: one focused sentence making a specific, real observation about the prospect's business drawn directly from the website content.
+- Value: one sentence connecting that observation to how the sender's services could specifically help. Do not spend more than this on the sender's background.
+- CTA: one direct sentence asking if they'd be open to a quick call or chat.
 
-CRITICAL RULE: Never use placeholder brackets like [Company Name], [Your Name], [Prospect Name], or any similar bracketed placeholder anywhere in the email. Every detail must be a real, concrete value — either pulled from the content above or the domain fallback. The email must read as fully complete and ready to send exactly as written.`;
+OUTPUT FORMAT — reproduce this structure exactly, with these exact markers and blank lines:
+
+SUBJECT_LINES:
+1. [subject line option 1]
+2. [subject line option 2]
+3. [subject line option 3]
+EMAIL:
+Hi [Name or Company team],
+
+[Hook paragraph]
+
+[Value paragraph]
+
+[CTA paragraph]
+
+${signOff}
+
+RULES:
+- The SUBJECT_LINES: and EMAIL: section markers must appear exactly as shown.
+- Subject lines must never use placeholder brackets — every value must be real and specific.
+- The email greeting, body paragraphs, and sign-off must each be separated by blank lines.
+- The email body (hook + value + CTA, not counting greeting and sign-off) must be under 100 words total.
+- Never use placeholder brackets like [Name], [Company], [Your Name], or any bracketed placeholder anywhere — every value must be real and concrete, pulled from the content above or the domain fallback.
+- The email must be fully ready to send as written.
+- Return plain text only — no markdown, no asterisks, no bullet points.`;
+}
+
+export function parsePitchResponse(raw: string): {
+  subjectLines: string[];
+  emailContent: string;
+} {
+  const subjectMatch = raw.match(/SUBJECT_LINES:\n([\s\S]*?)\n+EMAIL:\n/);
+  const emailMatch = raw.match(/EMAIL:\n([\s\S]*)/);
+
+  const subjectLines = subjectMatch
+    ? subjectMatch[1]
+        .split("\n")
+        .filter((l) => l.match(/^\d\./))
+        .map((l) => l.replace(/^\d\.\s*/, "").trim())
+        .filter(Boolean)
+    : [];
+
+  const emailContent = emailMatch ? emailMatch[1].trim() : raw.trim();
+
+  return { subjectLines, emailContent };
 }
 
 export async function generatePitch(
@@ -50,4 +100,23 @@ export async function generatePitch(
   const prompt = buildPrompt(websiteContent, profile, domain);
   const result = await model.generateContent(prompt);
   return result.response.text().trim();
+}
+
+export async function generatePitchStream(
+  websiteContent: string,
+  profile: Profile,
+  domain: string,
+): Promise<AsyncGenerator<string>> {
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const prompt = buildPrompt(websiteContent, profile, domain);
+  const result = await model.generateContentStream(prompt);
+
+  async function* streamText(): AsyncGenerator<string> {
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      if (text) yield text;
+    }
+  }
+
+  return streamText();
 }

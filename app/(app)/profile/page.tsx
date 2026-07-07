@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { ProfileForm } from "@/components/profile/ProfileForm";
+import { ProfileLayout } from "@/components/profile/ProfileLayout";
 import { createClient } from "@/lib/supabase-server";
-import { isTone, type Profile } from "@/types";
+import { isPlan, isTone, type Profile } from "@/types";
+
+export const metadata: Metadata = {
+  title: "Profile — PitchSnap",
+};
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -13,7 +18,7 @@ export default async function ProfilePage() {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("services, tone, target_client")
+    .select("services, tone, target_client, plan, cancel_at")
     .eq("user_id", user.id)
     .maybeSingle();
   if (profileError) {
@@ -26,12 +31,16 @@ export default async function ProfilePage() {
     target_client: profile?.target_client ?? "",
   };
 
+  const plan = isPlan(profile?.plan) ? profile.plan : "free";
+  const cancelAt: string | null = profile?.cancel_at ?? null;
+
   return (
     <main className="max-w-[1280px] mx-auto px-6 py-8">
-      <h1 className="text-2xl font-bold text-text-primary mb-6">Profile</h1>
-      <div className="bg-surface border border-border rounded-xl shadow-sm p-6 max-w-lg">
-        <ProfileForm initialData={initialData} />
-      </div>
+      <h1 className="text-2xl font-bold text-text-primary">Profile &amp; Settings</h1>
+      <p className="mt-1 mb-6 text-sm text-text-secondary">
+        Manage your pitch tone, services, and billing.
+      </p>
+      <ProfileLayout initialData={initialData} plan={plan} cancelAt={cancelAt} />
     </main>
   );
 }
